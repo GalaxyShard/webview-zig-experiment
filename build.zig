@@ -43,7 +43,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .target = target,
     });
-    staticLib.defineCMacro("WEBVIEW_STATIC", null);
+    staticLib.root_module.addCMacro("WEBVIEW_STATIC", "");
     staticLib.linkLibCpp();
     switch (target.query.os_tag orelse @import("builtin").os.tag) {
         .windows => {
@@ -88,7 +88,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .target = target,
     });
-    sharedLib.defineCMacro("WEBVIEW_BUILD_SHARED", null);
+    sharedLib.root_module.addCMacro("WEBVIEW_BUILD_SHARED", "");
     sharedLib.linkLibCpp();
     switch (target.query.os_tag orelse @import("builtin").os.tag) {
         .windows => {
