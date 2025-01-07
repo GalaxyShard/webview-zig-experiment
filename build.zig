@@ -12,97 +12,97 @@ pub fn build(b: *std.Build) void {
 
     const source_file = webview_upstream.path("core/src/webview.cc");
 
-    const staticLib = b.addStaticLibrary(.{
-        .name = "webviewStatic",
+    const static_lib = b.addStaticLibrary(.{
+        .name = "webview-static",
         .optimize = optimize,
         .target = target,
     });
-    staticLib.addIncludePath(webview_upstream.path("core/include/webview"));
-    staticLib.root_module.addCMacro("WEBVIEW_STATIC", "");
-    staticLib.linkLibCpp();
+    static_lib.addIncludePath(webview_upstream.path("core/include/webview"));
+    static_lib.root_module.addCMacro("WEBVIEW_STATIC", "");
+    static_lib.linkLibCpp();
     switch (target.result.os.tag) {
         .windows => {
-            staticLib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++14"} });
-            staticLib.addIncludePath(b.path("external/WebView2/"));
-            staticLib.linkSystemLibrary("ole32");
-            staticLib.linkSystemLibrary("shlwapi");
-            staticLib.linkSystemLibrary("version");
-            staticLib.linkSystemLibrary("advapi32");
-            staticLib.linkSystemLibrary("shell32");
-            staticLib.linkSystemLibrary("user32");
+            static_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++14"} });
+            static_lib.addIncludePath(b.path("external/WebView2/"));
+            static_lib.linkSystemLibrary("ole32");
+            static_lib.linkSystemLibrary("shlwapi");
+            static_lib.linkSystemLibrary("version");
+            static_lib.linkSystemLibrary("advapi32");
+            static_lib.linkSystemLibrary("shell32");
+            static_lib.linkSystemLibrary("user32");
         },
         .macos => {
-            staticLib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
-            staticLib.linkFramework("WebKit");
+            static_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
+            static_lib.linkFramework("WebKit");
         },
         .freebsd => {
-            staticLib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/cairo/" });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gtk-3.0/" });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/glib-2.0/" });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/lib/glib-2.0/include/" });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/webkitgtk-4.0/" });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/pango-1.0/" });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/harfbuzz/" });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gdk-pixbuf-2.0/" });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/atk-1.0/" });
-//             staticLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/libsoup-3.0/" });
-            staticLib.linkSystemLibrary("gtk-3");
-            staticLib.linkSystemLibrary("webkit2gtk-4.0");
+            static_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/cairo/" });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gtk-3.0/" });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/glib-2.0/" });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/lib/glib-2.0/include/" });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/webkitgtk-4.0/" });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/pango-1.0/" });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/harfbuzz/" });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gdk-pixbuf-2.0/" });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/atk-1.0/" });
+//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/libsoup-3.0/" });
+            static_lib.linkSystemLibrary("gtk-3");
+            static_lib.linkSystemLibrary("webkit2gtk-4.0");
         },
         else => {
-            staticLib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
-            staticLib.linkSystemLibrary("gtk+-3.0");
-            staticLib.linkSystemLibrary("webkit2gtk-4.0");
-//             staticLib.linkSystemLibrary("gtk-4");
-//             staticLib.linkSystemLibrary("webkitgtk-6.0");
+            static_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
+            static_lib.linkSystemLibrary("gtk+-3.0");
+            static_lib.linkSystemLibrary("webkit2gtk-4.0");
+//             static_lib.linkSystemLibrary("gtk-4");
+//             static_lib.linkSystemLibrary("webkitgtk-6.0");
         },
     }
-    b.installArtifact(staticLib);
+    b.installArtifact(static_lib);
 
-    const sharedLib = b.addSharedLibrary(.{
-        .name = "webviewShared",
+    const shared_lib = b.addSharedLibrary(.{
+        .name = "webview-shared",
         .optimize = optimize,
         .target = target,
     });
-    staticLib.addIncludePath(webview_upstream.path("core/include/webview"));
-    sharedLib.root_module.addCMacro("WEBVIEW_BUILD_SHARED", "");
-    sharedLib.linkLibCpp();
+    shared_lib.addIncludePath(webview_upstream.path("core/include/webview"));
+    shared_lib.root_module.addCMacro("WEBVIEW_BUILD_SHARED", "");
+    shared_lib.linkLibCpp();
     switch (target.result.os.tag) {
         .windows => {
-            sharedLib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++14"} });
-            sharedLib.addIncludePath(b.path("external/WebView2/"));
-            sharedLib.linkSystemLibrary("ole32");
-            sharedLib.linkSystemLibrary("shlwapi");
-            sharedLib.linkSystemLibrary("version");
-            sharedLib.linkSystemLibrary("advapi32");
-            sharedLib.linkSystemLibrary("shell32");
-            sharedLib.linkSystemLibrary("user32");
+            shared_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++14"} });
+            shared_lib.addIncludePath(b.path("external/WebView2"));
+            shared_lib.linkSystemLibrary("ole32");
+            shared_lib.linkSystemLibrary("shlwapi");
+            shared_lib.linkSystemLibrary("version");
+            shared_lib.linkSystemLibrary("advapi32");
+            shared_lib.linkSystemLibrary("shell32");
+            shared_lib.linkSystemLibrary("user32");
         },
         .macos => {
-            sharedLib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
-            sharedLib.linkFramework("WebKit");
+            shared_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
+            shared_lib.linkFramework("WebKit");
         },
         .freebsd => {
-            sharedLib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/cairo/" });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gtk-3.0/" });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/glib-2.0/" });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/lib/glib-2.0/include/" });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/webkitgtk-4.0/" });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/pango-1.0/" });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/harfbuzz/" });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gdk-pixbuf-2.0/" });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/atk-1.0/" });
-//             sharedLib.addIncludePath(.{ .cwd_relative = "/usr/local/include/libsoup-3.0/" });
-            sharedLib.linkSystemLibrary("gtk-3");
-            sharedLib.linkSystemLibrary("webkit2gtk-4.0");
+            shared_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/cairo/" });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gtk-3.0/" });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/glib-2.0/" });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/lib/glib-2.0/include/" });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/webkitgtk-4.0/" });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/pango-1.0/" });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/harfbuzz/" });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gdk-pixbuf-2.0/" });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/atk-1.0/" });
+//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/libsoup-3.0/" });
+            shared_lib.linkSystemLibrary("gtk-3");
+            shared_lib.linkSystemLibrary("webkit2gtk-4.0");
         },
         else => {
-            sharedLib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
-            sharedLib.linkSystemLibrary("gtk+-3.0");
-            sharedLib.linkSystemLibrary("webkit2gtk-4.0");
+            shared_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
+            shared_lib.linkSystemLibrary("gtk+-3.0");
+            shared_lib.linkSystemLibrary("webkit2gtk-4.0");
         },
     }
-    b.installArtifact(sharedLib);
+    b.installArtifact(shared_lib);
 }
