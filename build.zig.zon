@@ -1,13 +1,19 @@
 .{
     .name = "webview",
     .version = "0.1.0",
+    .dependencies = .{
+        .webview = .{
+            .url = "git+https://github.com/webview/webview.git#83a4b4a5bbcb4b0ba2ca3ee226c2da1414719106",
+            .hash = "1220f5816abf26746accd1cf12a85a82dd470368da3557f304687bfb81e14f5928cd",
+        },
+    },
     .paths = .{
         "LICENSE",
         "README.md",
         "examples",
         "build.zig",
-        "build.zig.zon", 
-        "src", 
+        "build.zig.zon",
+        "src",
         "external",
     },
 }
