@@ -24,30 +24,30 @@ pub const raw = @import("raw.zig");
 
 pub const Error = error {
     // Missing dependency.
-    missing_dependency,
+    MissingDependency,
     // Operation canceled.
-    canceled,
+    Canceled,
     /// Invalid state detected.
-    invalid_state,
+    InvalidState,
     /// One or more invalid arguments have been specified e.g. in a function call.
-    invalid_argument,
+    InvalidArgument,
     /// An unspecified error occurred. A more specific error code may be needed.
-    unspecified,
+    Unspecified,
     // Signifies that something already exists.
-    duplicate,
+    Duplicate,
     // Signifies that something does not exist.
-    not_found,
+    NotFound,
 };
 pub fn rawReturnToError(value: raw.WebviewReturn) Error!void {
     return switch (value) {
-        .missing_dependency => error.missing_dependency,
-        .canceled => error.canceled,
-        .invalid_state => error.invalid_state,
-        .invalid_argument => error.invalid_argument,
-        .unspecified => error.unspecified,
+        .missing_dependency =>  error.MissingDependency,
+        .canceled => error.Canceled,
+        .invalid_state =>  error.InvalidState,
+        .invalid_argument =>  error.InvalidArgument,
+        .unspecified => error.Unspecified,
         .ok => void{},
-        .duplicate => error.duplicate,
-        .not_found => error.not_found,
+        .duplicate => error.Duplicate,
+        .not_found => error.NotFound,
     };
 }
 
