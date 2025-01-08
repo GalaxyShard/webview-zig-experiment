@@ -17,42 +17,63 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-pub const WEBVIEW_VERSION_MAJOR = @as(c_int, 0);
-pub const WEBVIEW_VERSION_MINOR = @as(c_int, 10);
-pub const WEBVIEW_VERSION_PATCH = @as(c_int, 0);
 
-pub const WEBVIEW_VERSION_NUMBER = "0.10.0";
 
-pub const WEBVIEW_HINT_NONE = @as(c_int, 0);
-pub const WEBVIEW_HINT_MIN = @as(c_int, 1);
-pub const WEBVIEW_HINT_MAX = @as(c_int, 2);
-pub const WEBVIEW_HINT_FIXED = @as(c_int, 3);
+/// The following codes are commonly used in the library:
+/// - ok
+/// - unspecified
+/// - invalid_argument
+/// - invalid_state
+///
+/// With the exception of "ok" which is normally expected,
+/// the other common codes do not normally need to be handled specifically.
+/// Refer to specific functions regarding handling of other codes.
+///
+pub const WebviewReturn = enum(c_int) {
+    /// Missing dependency.
+    missing_dependency = -5,
+    /// Operation canceled.
+    canceled = -4,
+    /// Invalid state detected.
+    invalid_state = -3,
+    /// One or more invalid arguments have been specified e.g. in a function call.
+    invalid_argument = -2,
+    /// An unspecified error occurred. A more specific error code may be needed.
+    unspecified = -1,
+    /// OK/Success. Functions that return error codes will typically return this
+    /// to signify successful operations.
+    ok = 0,
+    /// Signifies that something already exists.
+    duplicate = 1,
+    /// Signifies that something does not exist.
+    not_found = 2
+};
 
-pub const webview_version_t = extern struct {
+pub const WebviewVersion = extern struct {
     major: c_uint,
     minor: c_uint,
     patch: c_uint,
 };
-pub const webview_version_info_t = extern struct {
-    version: webview_version_t,
+pub const WebviewVersionInfo = extern struct {
+    version: WebviewVersion,
     version_number: [32]u8,
     pre_release: [48]u8,
     build_metadata: [48]u8,
 };
-pub const webview_t = ?*anyopaque;
-pub extern fn webview_create(debug: c_int, window: ?*anyopaque) webview_t;
-pub extern fn webview_destroy(w: webview_t) void;
-pub extern fn webview_run(w: webview_t) void;
-pub extern fn webview_terminate(w: webview_t) void;
-pub extern fn webview_dispatch(w: webview_t, @"fn": ?*const fn (webview_t, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) void;
+pub const webview_t = *anyopaque;
+pub extern fn webview_create(debug: c_int, window: ?*anyopaque) ?webview_t;
+pub extern fn webview_destroy(w: webview_t) WebviewReturn;
+pub extern fn webview_run(w: webview_t) WebviewReturn;
+pub extern fn webview_terminate(w: webview_t) WebviewReturn;
+pub extern fn webview_dispatch(w: webview_t, @"fn": ?*const fn (webview_t, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) WebviewReturn;
 pub extern fn webview_get_window(w: webview_t) ?*anyopaque;
-pub extern fn webview_set_title(w: webview_t, title: [*c]const u8) void;
-pub extern fn webview_set_size(w: webview_t, width: c_int, height: c_int, hints: c_int) void;
-pub extern fn webview_navigate(w: webview_t, url: [*c]const u8) void;
-pub extern fn webview_set_html(w: webview_t, html: [*c]const u8) void;
-pub extern fn webview_init(w: webview_t, js: [*c]const u8) void;
-pub extern fn webview_eval(w: webview_t, js: [*c]const u8) void;
-pub extern fn webview_bind(w: webview_t, name: [*c]const u8, @"fn": ?*const fn ([*c]const u8, [*c]const u8, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) void;
-pub extern fn webview_unbind(w: webview_t, name: [*c]const u8) void;
-pub extern fn webview_return(w: webview_t, seq: [*c]const u8, status: c_int, result: [*c]const u8) void;
-pub extern fn webview_version() [*c]const webview_version_info_t;
+pub extern fn webview_set_title(w: webview_t, title: [*:0]const u8) WebviewReturn;
+pub extern fn webview_set_size(w: webview_t, width: c_int, height: c_int, hints: c_int) WebviewReturn;
+pub extern fn webview_navigate(w: webview_t, url: [*:0]const u8) WebviewReturn;
+pub extern fn webview_set_html(w: webview_t, html: [*:0]const u8) WebviewReturn;
+pub extern fn webview_init(w: webview_t, js: [*:0]const u8) WebviewReturn;
+pub extern fn webview_eval(w: webview_t, js: [*:0]const u8) WebviewReturn;
+pub extern fn webview_bind(w: webview_t, name: [*:0]const u8, @"fn": ?*const fn ([*:0]const u8, [*:0]const u8, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) WebviewReturn;
+pub extern fn webview_unbind(w: webview_t, name: [*:0]const u8) WebviewReturn;
+pub extern fn webview_return(w: webview_t, id: [*:0]const u8, status: c_int, result: [*:0]const u8) WebviewReturn;
+pub extern fn webview_version() *const WebviewVersionInfo;

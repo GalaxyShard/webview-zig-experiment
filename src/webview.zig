@@ -22,118 +22,122 @@ const fmt = std.fmt;
 const mem = std.mem;
 pub const raw = @import("raw.zig");
 
-pub const WebView = struct {
+pub const Error = error {
+    // Missing dependency.
+    missing_dependency,
+    // Operation canceled.
+    canceled,
+    /// Invalid state detected.
+    invalid_state,
+    /// One or more invalid arguments have been specified e.g. in a function call.
+    invalid_argument,
+    /// An unspecified error occurred. A more specific error code may be needed.
+    unspecified,
+    // Signifies that something already exists.
+    duplicate,
+    // Signifies that something does not exist.
+    not_found,
+};
+pub fn rawReturnToError(value: raw.WebviewReturn) Error!void {
+    return switch (value) {
+        .missing_dependency => error.missing_dependency,
+        .canceled => error.canceled,
+        .invalid_state => error.invalid_state,
+        .invalid_argument => error.invalid_argument,
+        .unspecified => error.unspecified,
+        .ok => void{},
+        .duplicate => error.duplicate,
+        .not_found => error.not_found,
+    };
+}
+
+pub const Webview = struct {
     
-    webview: raw.webview_t,
+    handle: raw.webview_t,
 
     const Self = @This();
 
-    pub const WebViewVersionInfo = raw.webview_version_info_t;
-
-    pub const DispatchCallback = *const fn (WebView, ?*anyopaque) void;
-
-    pub const BindCallback = *const fn ([:0]const u8, [:0]const u8, ?*anyopaque) void;
+    pub const VersionInfo = raw.WebviewVersionInfo;
+    pub const DispatchCallback = fn (Webview, ?*anyopaque) void;
+    pub const BindCallback = fn ([:0]const u8, [:0]const u8, ?*anyopaque) void;
 
     pub const WindowSizeHint = enum(c_int) {
-        None,
-        Min,
-        Max,
-        Fixed
+        none = 0,
+        min = 1,
+        max = 2,
+        fixed = 3
     };
 
-    pub fn create(debug: bool, window: ?*anyopaque) Self {
-        return Self{ .webview = raw.webview_create(@intFromBool(debug), window) };
+    pub fn create(debug: bool, window: ?*anyopaque) ?Self {
+        const handle = raw.webview_create(@intFromBool(debug), window) orelse return null;
+        return .{ .handle = handle };
     }
 
-    pub fn run(self: Self) void {
-        raw.webview_run(self.webview);
+    pub fn run(self: Self) Error!void {
+        return rawReturnToError(raw.webview_run(self.handle));
     }
 
-    pub fn terminate(self: Self) void {
-        raw.webview_terminate(self.webview);
+    pub fn terminate(self: Self) Error!void {
+        return rawReturnToError(raw.webview_terminate(self.handle));
     }
     
-    pub fn dispatch(self: Self, func: anytype, arg: ?*anyopaque) void {
-        const T = @TypeOf(func);
-        if (T != DispatchCallback and T != fn (WebView, ?*anyopaque) void) {
-            @compileError(fmt.comptimePrint("expected type 'fn (WebView, ?*anyopaque) void' or '*const fn (WebView, ?*anyopaque) void', found '{any}'",
-                                            .{T}));
-        }
-        const callback = struct {
-            var callback: DispatchCallback = undefined;
-            fn function(w: raw.webview_t, ctx: ?*anyopaque) callconv(.C) void {
-                if (T == DispatchCallback) {
-                    callback(.{ .webview = w}, ctx);
-                } else {
-                    @call(.always_inline, func, .{.{ .webview = w}, ctx});
-                }
-            }
-        };
-        if (T == DispatchCallback) callback.callback = func;
-        raw.webview_dispatch(self.webview, callback.function, arg);
+    pub fn dispatch(self: Self, func: anytype, context: ?*anyopaque) Error!void {
+        // TODO: rework this api
+        return rawReturnToError(raw.webview_dispatch(self.handle, func, context));
     }
     
     pub fn getWindow(self: Self) ?*anyopaque {
-        return raw.webview_get_window(self.webview);
+        return raw.webview_get_window(self.handle);
     }
     
-    pub fn setTitle(self: Self, title: [:0]const u8) void {
-        raw.webview_set_title(self.webview, title.ptr);
+    pub fn setTitle(self: Self, title: [:0]const u8) Error!void {
+        return rawReturnToError(raw.webview_set_title(self.handle, title.ptr));
+    }
+
+    pub fn setSize(self: Self, width: i32, height: i32, hint: WindowSizeHint) Error!void {
+        return rawReturnToError(raw.webview_set_size(self.handle, width, height, @intFromEnum(hint)));
     }
     
-    pub fn setSize(self: Self, width: i32, height: i32, hint: WindowSizeHint) void {
-        raw.webview_set_size(self.webview, width, height, @intFromEnum(hint));
+    pub fn navigate(self: Self, url: [:0]const u8) Error!void {
+        return rawReturnToError(raw.webview_navigate(self.handle, url.ptr));
     }
     
-    pub fn navigate(self: Self, url: [:0]const u8) void {
-        raw.webview_navigate(self.webview, url.ptr);
+    pub fn setHtml(self: Self, html: [:0]const u8) Error!void {
+        return rawReturnToError(raw.webview_set_html(self.handle, html.ptr));
     }
     
-    pub fn setHtml(self: Self, html: [:0]const u8) void {
-        raw.webview_set_html(self.webview, html.ptr);
+    pub fn init(self: Self, js: [:0]const u8) Error!void {
+        return rawReturnToError(raw.webview_init(self.handle, js.ptr));
     }
     
-    pub fn init(self: Self, js: [:0]const u8) void {
-        raw.webview_init(self.webview, js.ptr);
+    pub fn eval(self: Self, js: [:0]const u8) Error!void {
+        return rawReturnToError(raw.webview_eval(self.handle, js.ptr));
     }
     
-    pub fn eval(self: Self, js: [:0]const u8) void {
-        raw.webview_eval(self.webview, js.ptr);
-    }
-    
-    pub fn bind(self: Self, name: [:0]const u8, func: anytype, arg: ?*anyopaque) void {
-        const T = @TypeOf(func);
-        if (T != BindCallback and T != fn ([:0]const u8, [:0]const u8, ?*anyopaque) void) {
-            @compileError(fmt.comptimePrint("expected type 'fn ([:0]const u8, [:0]const u8, ?*anyopaque) void' or '*const fn ([:0]const u8, [:0]const u8, ?*anyopaque) void', found '{any}'",
-                                            .{T}));
-        }
-        const callback = struct {
-            var callback: BindCallback = undefined;
-            fn function(seq: [*c]const u8, req: [*c]const u8, ctx: ?*anyopaque) callconv(.C) void {
-                if (T == BindCallback) {
-                    callback(mem.sliceTo(seq, 0), mem.sliceTo(req, 0), ctx);
-                } else {
-                    @call(.always_inline, func, .{mem.sliceTo(seq, 0), mem.sliceTo(req, 0), ctx});
-                }
+    pub fn bind(self: Self, name: [:0]const u8, func: anytype, context: ?*anyopaque) Error!void {
+        const wrapper = struct {
+            fn inner(seq: [*:0]const u8, req: [*:0]const u8, context_inner: ?*anyopaque) callconv(.c) void {
+                @call(.auto, func, .{mem.sliceTo(seq, 0), mem.sliceTo(req, 0), context_inner});
             }
         };
-        if (T == BindCallback) callback.callback = func;
-        raw.webview_bind(self.webview, name.ptr, callback.function, arg);
+        return rawReturnToError(raw.webview_bind(self.handle, name.ptr, wrapper.inner, context));
     }
     
-    pub fn unbind(self: Self, name: [:0]const u8) void {
-        raw.webview_unbind(self.webview, name.ptr);
+    pub fn unbind(self: Self, name: [:0]const u8) Error!void {
+        return rawReturnToError(raw.webview_unbind(self.handle, name.ptr));
     }
     
-    pub fn ret(self: Self ,seq: [:0]const u8, status: i32, result: [:0]const u8) void {
-        raw.webview_return(self.webview, seq.ptr, status, result.ptr);
+    pub fn returnRaw(self: Self, id: [:0]const u8, status: i32, result: [:0]const u8) Error!void {
+        return rawReturnToError(raw.webview_return(self.handle, id.ptr, status, result.ptr));
     }
-    
-    pub fn version() *const WebViewVersionInfo {
+
+    pub fn version() *const VersionInfo {
         return raw.webview_version();
     }
 
     pub fn destroy(self: Self) void {
-        raw.webview_destroy(self.webview);
+        // As of 2025-01-08, this should never fail unless self.handle is null,
+        // which is prevented by Zig's type checking
+        std.debug.assert(raw.webview_destroy(self.handle) == .ok);
     }
 };
