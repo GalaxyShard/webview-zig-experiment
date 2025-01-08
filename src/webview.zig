@@ -127,8 +127,22 @@ pub const Webview = struct {
         return rawReturnToError(raw.webview_unbind(self.handle, name.ptr));
     }
     
+    /// id: must be the value passed into bind callback
+    /// status: zero for success, non-zero for error
+    /// result: a json encoded string to be passed to Javascript
     pub fn returnRaw(self: Self, id: [:0]const u8, status: i32, result: [:0]const u8) Error!void {
         return rawReturnToError(raw.webview_return(self.handle, id.ptr, status, result.ptr));
+    }
+
+    /// id: must be value passed into bind callback
+    /// status: zero for success, non-zero for error
+    pub fn returnValue(self: Self, alloc: std.mem.Allocator, id: [:0]const u8, status: i32, value: anytype) (std.mem.Allocator.Error || Error)!void {
+        var buffer = std.ArrayList(u8).init(alloc);
+        defer buffer.deinit();
+        try std.json.stringifyArbitraryDepth(alloc, value, .{}, buffer.writer());
+        const json = try buffer.toOwnedSliceSentinel(0);
+
+        return self.returnRaw(self.handle, id, status, json);
     }
 
     pub fn version() *const VersionInfo {
