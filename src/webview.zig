@@ -22,44 +22,57 @@ const fmt = std.fmt;
 const mem = std.mem;
 pub const raw = @import("raw.zig");
 
-pub const Error = error {
-    // Missing dependency.
-    MissingDependency,
-    // Operation canceled.
-    Canceled,
-    /// Invalid state detected.
-    InvalidState,
-    /// One or more invalid arguments have been specified e.g. in a function call.
-    InvalidArgument,
-    /// An unspecified error occurred. A more specific error code may be needed.
-    Unspecified,
-    // Signifies that something already exists.
-    Duplicate,
-    // Signifies that something does not exist.
-    NotFound,
-};
-pub fn rawReturnToError(value: raw.WebviewReturn) Error!void {
-    return switch (value) {
-        .missing_dependency =>  error.MissingDependency,
-        .canceled => error.Canceled,
-        .invalid_state =>  error.InvalidState,
-        .invalid_argument =>  error.InvalidArgument,
-        .unspecified => error.Unspecified,
-        .ok => void{},
-        .duplicate => error.Duplicate,
-        .not_found => error.NotFound,
-    };
-}
-
 pub const Webview = struct {
-    
+
     handle: raw.webview_t,
 
     const Self = @This();
 
     pub const VersionInfo = raw.WebviewVersionInfo;
     pub const DispatchCallback = fn (Webview, ?*anyopaque) void;
-    pub const BindCallback = fn ([:0]const u8, [:0]const u8, ?*anyopaque) void;
+
+    pub const Error = error {
+        // Missing dependency.
+        MissingDependency,
+        // Operation canceled.
+        Canceled,
+        /// Invalid state detected.
+        InvalidState,
+        /// One or more invalid arguments have been specified e.g. in a function call.
+        InvalidArgument,
+        /// An unspecified error occurred. A more specific error code may be needed.
+        Unspecified,
+        // Signifies that something already exists.
+        Duplicate,
+        // Signifies that something does not exist.
+        NotFound,
+    };
+    const Oom = error{OutOfMemory};
+    pub fn rawReturnToError(value: raw.WebviewReturn) Error!void {
+        return switch (value) {
+            .missing_dependency =>  error.MissingDependency,
+            .canceled => error.Canceled,
+            .invalid_state =>  error.InvalidState,
+            .invalid_argument =>  error.InvalidArgument,
+            .unspecified => error.Unspecified,
+            .ok => void{},
+            .duplicate => error.Duplicate,
+            .not_found => error.NotFound,
+        };
+    }
+
+    pub const BindContext = struct {
+        webview: Webview,
+        alloc: std.mem.Allocator,
+        id: [:0]const u8,
+
+        pub fn returnValue(self: BindContext, status: i32, value: anytype) (Oom || Error)!void {
+            return self.webview.returnValue(self.alloc, self.id, status, value);
+        }
+        pub fn returnRaw(self: BindContext, status: i32, json: [:0]const u8) Error!void {
+            return self.webview.returnRaw(self.id, status, json);
+        }
+    };
 
     pub const WindowSizeHint = enum(c_int) {
         none = 0,
@@ -114,35 +127,133 @@ pub const Webview = struct {
         return rawReturnToError(raw.webview_eval(self.handle, js.ptr));
     }
     
-    pub fn bind(self: Self, name: [:0]const u8, func: anytype, context: ?*anyopaque) Error!void {
-        const wrapper = struct {
-            fn inner(seq: [*:0]const u8, req: [*:0]const u8, context_inner: ?*anyopaque) callconv(.c) void {
-                @call(.auto, func, .{mem.sliceTo(seq, 0), mem.sliceTo(req, 0), context_inner});
-            }
+    pub const Binding = struct {
+        webview: Webview,
+        name: [:0]const u8,
+        internal_context: *anyopaque,
+        deinit_context: *const fn(internal_context: *anyopaque) void,
+
+        pub fn deinit(self: Binding) void {
+            // Confirmed against webview as of 2025-01-10, this should never fail
+            // unless self.webview.handle or self.name are null (prevented by Zig's type checking)
+            // or if the function wasn't bound (possibly a double-free; an error either way)
+            std.debug.assert(raw.webview_unbind(self.webview.handle, self.name.ptr) == .ok);
+            self.deinit_context(self.internal_context);
+        }
+    };
+
+    pub fn bind(self: Self, alloc: std.mem.Allocator, name: [:0]const u8, func: anytype, user_context: anytype) (Oom || Error)!Binding {
+        const InternalContext = struct {
+            webview: Webview,
+            alloc: std.mem.Allocator,
+            name: [:0]const u8,
+            func: @TypeOf(func),
+            user_context: @TypeOf(user_context),
         };
-        return rawReturnToError(raw.webview_bind(self.handle, name.ptr, wrapper.inner, context));
-    }
-    
-    pub fn unbind(self: Self, name: [:0]const u8) Error!void {
-        return rawReturnToError(raw.webview_unbind(self.handle, name.ptr));
+
+        const incorrect_type_msg = std.fmt.comptimePrint(
+            "expected function type '*const fn(...) void', found '{s}'",
+            .{ @typeName(@TypeOf(func)) },
+        );
+        const info = switch (@typeInfo(@TypeOf(func))) {
+            .pointer => |p| (
+                switch (@typeInfo(p.child)) {
+                    .@"fn" => |i| i,
+                    else => @compileError(incorrect_type_msg),
+                }
+            ),
+            else => @compileError(incorrect_type_msg),
+        };
+
+        if (info.is_var_args or (info.params.len != 3 and info.params.len != 2)) {
+            const msg = (
+                    \\`func` must have either 2 or 3 arguments
+                    \\     2 args: fn(context: BindContext, data: {0s}) void
+                    \\     3 args: fn(context: BindContext, args: <some type>, data: {0s}) void
+            );
+            @compileError(std.fmt.comptimePrint(msg, .{ @typeName(@TypeOf(user_context)) }));
+        }
+        const LastArgumentType = info.params[info.params.len - 1].type.?;
+        if (@TypeOf(user_context) != LastArgumentType) {
+            @compileError(std.fmt.comptimePrint("last argument of 'func' ({s}) must be the same type as 'user_context' ({s})", .{
+                @typeName(@TypeOf(user_context)), @typeName(LastArgumentType)
+            }));
+        }
+        if (info.return_type.? != void) {
+            @compileError(std.fmt.comptimePrint("bind function must return 'void', found '{s}'; try using bind_context.returnValue(...) instead", .{
+                @typeName(info.return_type.?),
+            }));
+        }
+
+        const callback = struct {
+            fn inner(id: [*:0]const u8, json: [*:0]const u8, context_raw: ?*anyopaque) callconv(.c) void {
+
+                const internal_context: *InternalContext = @alignCast(@ptrCast(context_raw.?));
+
+                const bind_context: BindContext = .{
+                    .webview = internal_context.webview,
+                    .alloc = internal_context.alloc,
+                    .id = std.mem.sliceTo(id, 0),
+                };
+                const ArgsType = info.params[1].type.?;
+
+                if (info.params.len == 2) {
+                    internal_context.func(bind_context, internal_context.user_context);
+                } else {
+                    const json_slice = std.mem.sliceTo(json, 0);
+                    const parsed = std.json.parseFromSlice(ArgsType, internal_context.alloc, json_slice, .{}) catch |e| {
+                        std.debug.panic("(function {s}) error parsing json: {s}\njson: {s}\n", .{
+                            internal_context.name, @errorName(e), json_slice
+                        });
+                    };
+                    defer parsed.deinit();
+                    internal_context.func(bind_context, parsed.value, internal_context.user_context);
+                }
+            }
+        }.inner;
+        const deinit = struct {
+            fn inner(internal_context: *anyopaque) void {
+                const casted: *InternalContext = @alignCast(@ptrCast(internal_context));
+                casted.alloc.destroy(casted);
+            }
+        }.inner;
+        const context = try alloc.create(InternalContext);
+        context.* = .{
+            .webview = self,
+            .alloc = alloc,
+            .name = name,
+            .func = func,
+            .user_context = user_context,
+
+        };
+        try rawReturnToError(raw.webview_bind(self.handle, name.ptr, callback, context));
+        return .{
+            .webview = self,
+            .name = name,
+            .internal_context = context,
+            .deinit_context = &deinit,
+        };
     }
     
     /// id: must be the value passed into bind callback
     /// status: zero for success, non-zero for error
-    /// result: a json encoded string to be passed to Javascript
-    pub fn returnRaw(self: Self, id: [:0]const u8, status: i32, result: [:0]const u8) Error!void {
-        return rawReturnToError(raw.webview_return(self.handle, id.ptr, status, result.ptr));
+    /// json: a json encoded string to be passed to Javascript
+    pub fn returnRaw(self: Self, id: [:0]const u8, status: i32, json: [:0]const u8) Error!void {
+        return rawReturnToError(raw.webview_return(self.handle, id.ptr, status, json.ptr));
     }
 
     /// id: must be value passed into bind callback
     /// status: zero for success, non-zero for error
-    pub fn returnValue(self: Self, alloc: std.mem.Allocator, id: [:0]const u8, status: i32, value: anytype) (std.mem.Allocator.Error || Error)!void {
+    pub fn returnValue(self: Self, alloc: std.mem.Allocator, id: [:0]const u8, status: i32, value: anytype) (Oom || Error)!void {
         var buffer = std.ArrayList(u8).init(alloc);
         defer buffer.deinit();
-        try std.json.stringifyArbitraryDepth(alloc, value, .{}, buffer.writer());
-        const json = try buffer.toOwnedSliceSentinel(0);
 
-        return self.returnRaw(self.handle, id, status, json);
+        try std.json.stringifyArbitraryDepth(alloc, value, .{}, buffer.writer());
+
+        const json = try buffer.toOwnedSliceSentinel(0);
+        defer alloc.free(json);
+
+        return self.returnRaw(id, status, json);
     }
 
     pub fn version() *const VersionInfo {
@@ -150,8 +261,8 @@ pub const Webview = struct {
     }
 
     pub fn destroy(self: Self) void {
-        // As of 2025-01-08, this should never fail unless self.handle is null,
-        // which is prevented by Zig's type checking
+        // Confirmed against webview as of 2025-01-08, this should never fail
+        // unless self.handle is null, which is prevented by Zig's type checking
         std.debug.assert(raw.webview_destroy(self.handle) == .ok);
     }
 };
