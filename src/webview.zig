@@ -66,11 +66,31 @@ pub const Webview = struct {
         alloc: std.mem.Allocator,
         id: [:0]const u8,
 
-        pub fn returnValue(self: BindContext, status: i32, value: anytype) (Oom || Error)!void {
-            return self.webview.returnValue(self.alloc, self.id, status, value);
+        pub fn returnValue(self: BindContext, value: anytype) (Oom || Error)!void {
+            return self.returnGeneric(0, value);
         }
+
+        pub fn returnError(self: BindContext, value: anytype) (Oom || Error)!void {
+            return self.returnGeneric(1, value);
+        }
+
+        /// status: zero for success, non-zero for error
+        pub fn returnGeneric(self: BindContext, status: i32, value: anytype) (Oom || Error)!void {
+            var buffer = std.ArrayList(u8).init(self.alloc);
+            defer buffer.deinit();
+
+            try std.json.stringifyArbitraryDepth(self.alloc, value, .{}, buffer.writer());
+
+            const json = try buffer.toOwnedSliceSentinel(0);
+            defer self.alloc.free(json);
+
+            return self.returnRaw(status, json);
+        }
+
+        /// status: zero for success, non-zero for error
+        /// json: a json encoded string to be passed to Javascript
         pub fn returnRaw(self: BindContext, status: i32, json: [:0]const u8) Error!void {
-            return self.webview.returnRaw(self.id, status, json);
+            return rawReturnToError(raw.webview_return(self.webview.handle, self.id.ptr, status, json.ptr));
         }
     };
 
@@ -233,27 +253,6 @@ pub const Webview = struct {
             .internal_context = context,
             .deinit_context = &deinit,
         };
-    }
-    
-    /// id: must be the value passed into bind callback
-    /// status: zero for success, non-zero for error
-    /// json: a json encoded string to be passed to Javascript
-    pub fn returnRaw(self: Self, id: [:0]const u8, status: i32, json: [:0]const u8) Error!void {
-        return rawReturnToError(raw.webview_return(self.handle, id.ptr, status, json.ptr));
-    }
-
-    /// id: must be value passed into bind callback
-    /// status: zero for success, non-zero for error
-    pub fn returnValue(self: Self, alloc: std.mem.Allocator, id: [:0]const u8, status: i32, value: anytype) (Oom || Error)!void {
-        var buffer = std.ArrayList(u8).init(alloc);
-        defer buffer.deinit();
-
-        try std.json.stringifyArbitraryDepth(alloc, value, .{}, buffer.writer());
-
-        const json = try buffer.toOwnedSliceSentinel(0);
-        defer alloc.free(json);
-
-        return self.returnRaw(id, status, json);
     }
 
     pub fn version() *const VersionInfo {
