@@ -279,19 +279,24 @@ pub fn bind(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, func: a
                 .alloc = internal_context.alloc,
                 .id = std.mem.sliceTo(id, 0),
             };
-            const ArgsType = info.params[1].type.?;
 
             if (info.params.len == 2) {
                 internal_context.func(bind_context, internal_context.user_context);
             } else {
+                const ArgsType = info.params[1].type.?;
+
                 const json_slice = std.mem.sliceTo(json, 0);
-                const parsed = std.json.parseFromSlice(ArgsType, internal_context.alloc, json_slice, .{}) catch |e| {
+
+                // [1]ArgsType because the arguments passed from Javascript are wrapped in an array
+                // Assume only one argument is passed, as is expected from the function
+                // Use Javascript objects to pass more than one argument
+                const parsed = std.json.parseFromSlice([1]ArgsType, internal_context.alloc, json_slice, .{}) catch |e| {
                     std.debug.panic("(function {s}) error parsing json: {s}\njson: {s}\n", .{
                         internal_context.name, @errorName(e), json_slice
                     });
                 };
                 defer parsed.deinit();
-                internal_context.func(bind_context, parsed.value, internal_context.user_context);
+                internal_context.func(bind_context, parsed.value[0], internal_context.user_context);
             }
         }
     }.inner;
