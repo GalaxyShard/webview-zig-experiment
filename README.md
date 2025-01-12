@@ -25,7 +25,7 @@ const webview = b.dependency("webview", .{
     .target = target,
     .optimize = optimize,
 });
-exe.root_module.addImport("webview", webview.module("webview"));
+exe.root_module.addImport("Webview", webview.module("Webview"));
 exe.linkLibrary(webview.artifact("webview-static")); // or "webview-shared" for shared library
 // exe.linkSystemLibrary("webview"); // to link with installed prebuilt library without building
 ```
