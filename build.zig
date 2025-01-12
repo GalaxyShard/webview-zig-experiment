@@ -1,8 +1,8 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    _ = b.addModule("webview", .{
-        .root_source_file = b.path("src/webview.zig"),
+    _ = b.addModule("Webview", .{
+        .root_source_file = b.path("src/Webview.zig"),
     });
 
     const target = b.standardTargetOptions(.{});
