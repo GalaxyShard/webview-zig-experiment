@@ -32,32 +32,39 @@ pub const Webview = struct {
     pub const DispatchCallback = fn (Webview, ?*anyopaque) void;
 
     pub const Error = error {
-        // Missing dependency.
-        MissingDependency,
-        // Operation canceled.
-        Canceled,
         /// Invalid state detected.
         InvalidState,
-        /// One or more invalid arguments have been specified e.g. in a function call.
-        InvalidArgument,
         /// An unspecified error occurred. A more specific error code may be needed.
         Unspecified,
-        // Signifies that something already exists.
-        Duplicate,
-        // Signifies that something does not exist.
-        NotFound,
     };
-    const Oom = error{OutOfMemory};
-    pub fn rawReturnToError(value: raw.WebviewReturn) Error!void {
+    // Windows: WebView2 is not installed.
+    // pub const CreateError = error{MissingDependency} || Error;
+
+    // Checked with upstream webview as of 2025-01-12
+    pub const BindError = error {Duplicate,OutOfMemory} || Error;
+    pub const UnbindError = error {NotFound} || Error;
+
+    pub fn genericReturnToError(value: raw.WebviewReturn) Error!void {
         return switch (value) {
-            .missing_dependency =>  error.MissingDependency,
-            .canceled => error.Canceled,
-            .invalid_state =>  error.InvalidState,
-            .invalid_argument =>  error.InvalidArgument,
+            // 2025-01-12: Never actually returned; converted to nullptr before returning
+            .missing_dependency => unreachable,
+
+            // 2025-01-12: Never actually returned; converted to nullptr before returning
+            // Additionally this is not documented as a return value
+            .canceled => unreachable,
+
+            .invalid_state => error.InvalidState,
+
+            // only returned if a pointer is null or a integer outside the enum range
+            // is specified, both of which are prevented by Zig's type system
+            .invalid_argument => unreachable,
+
             .unspecified => error.Unspecified,
             .ok => void{},
-            .duplicate => error.Duplicate,
-            .not_found => error.NotFound,
+
+            // Function does not handle BindError/UnbindError
+            .duplicate => unreachable,
+            .not_found => unreachable,
         };
     }
 
@@ -66,16 +73,16 @@ pub const Webview = struct {
         alloc: std.mem.Allocator,
         id: [:0]const u8,
 
-        pub fn returnValue(self: BindContext, value: anytype) (Oom || Error)!void {
+        pub fn returnValue(self: BindContext, value: anytype) (error{OutOfMemory} || Error)!void {
             return self.returnGeneric(0, value);
         }
 
-        pub fn returnError(self: BindContext, value: anytype) (Oom || Error)!void {
+        pub fn returnError(self: BindContext, value: anytype) (error{OutOfMemory} || Error)!void {
             return self.returnGeneric(1, value);
         }
 
         /// status: zero for success, non-zero for error
-        pub fn returnGeneric(self: BindContext, status: i32, value: anytype) (Oom || Error)!void {
+        pub fn returnGeneric(self: BindContext, status: i32, value: anytype) (error{OutOfMemory} || Error)!void {
             if (@TypeOf(value) == void) {
                 return self.returnRaw(status, "");
             }
@@ -91,9 +98,9 @@ pub const Webview = struct {
         }
 
         /// status: zero for success, non-zero for error
-        /// json: a json encoded string to be passed to Javascript
+        /// json: a json encoded string to be passed to Javascript, or the empty string to pass a Javascript `undefined`
         pub fn returnRaw(self: BindContext, status: i32, json: [:0]const u8) Error!void {
-            return rawReturnToError(raw.webview_return(self.webview.handle, self.id.ptr, status, json.ptr));
+            return genericReturnToError(raw.webview_return(self.webview.handle, self.id.ptr, status, json.ptr));
         }
     };
 
@@ -104,22 +111,22 @@ pub const Webview = struct {
         fixed = 3
     };
 
-    pub fn create(debug: bool, window: ?*anyopaque) ?Self {
+    pub fn init(debug: bool, window: ?*anyopaque) ?Self {
         const handle = raw.webview_create(@intFromBool(debug), window) orelse return null;
         return .{ .handle = handle };
     }
 
     pub fn run(self: Self) Error!void {
-        return rawReturnToError(raw.webview_run(self.handle));
+        return genericReturnToError(raw.webview_run(self.handle));
     }
 
     pub fn terminate(self: Self) Error!void {
-        return rawReturnToError(raw.webview_terminate(self.handle));
+        return genericReturnToError(raw.webview_terminate(self.handle));
     }
     
     pub fn dispatch(self: Self, func: anytype, context: ?*anyopaque) Error!void {
         // TODO: rework this api
-        return rawReturnToError(raw.webview_dispatch(self.handle, func, context));
+        return genericReturnToError(raw.webview_dispatch(self.handle, func, context));
     }
     
     pub fn getWindow(self: Self) ?*anyopaque {
@@ -127,27 +134,27 @@ pub const Webview = struct {
     }
     
     pub fn setTitle(self: Self, title: [:0]const u8) Error!void {
-        return rawReturnToError(raw.webview_set_title(self.handle, title.ptr));
+        return genericReturnToError(raw.webview_set_title(self.handle, title.ptr));
     }
 
     pub fn setSize(self: Self, width: i32, height: i32, hint: WindowSizeHint) Error!void {
-        return rawReturnToError(raw.webview_set_size(self.handle, width, height, @intFromEnum(hint)));
+        return genericReturnToError(raw.webview_set_size(self.handle, width, height, @intFromEnum(hint)));
     }
     
     pub fn navigate(self: Self, url: [:0]const u8) Error!void {
-        return rawReturnToError(raw.webview_navigate(self.handle, url.ptr));
+        return genericReturnToError(raw.webview_navigate(self.handle, url.ptr));
     }
     
     pub fn setHtml(self: Self, html: [:0]const u8) Error!void {
-        return rawReturnToError(raw.webview_set_html(self.handle, html.ptr));
+        return genericReturnToError(raw.webview_set_html(self.handle, html.ptr));
     }
     
-    pub fn init(self: Self, js: [:0]const u8) Error!void {
-        return rawReturnToError(raw.webview_init(self.handle, js.ptr));
+    pub fn inject_preload_js(self: Self, js: [:0]const u8) Error!void {
+        return genericReturnToError(raw.webview_init(self.handle, js.ptr));
     }
     
     pub fn eval(self: Self, js: [:0]const u8) Error!void {
-        return rawReturnToError(raw.webview_eval(self.handle, js.ptr));
+        return genericReturnToError(raw.webview_eval(self.handle, js.ptr));
     }
     
     pub const Binding = struct {
@@ -162,10 +169,11 @@ pub const Webview = struct {
             // or if the function wasn't bound (possibly a double-free; an error either way)
             std.debug.assert(raw.webview_unbind(self.webview.handle, self.name.ptr) == .ok);
             self.deinit_context(self.internal_context);
+
         }
     };
 
-    pub fn bind(self: Self, alloc: std.mem.Allocator, name: [:0]const u8, func: anytype, user_context: anytype) (Oom || Error)!Binding {
+    pub fn bind(self: Self, alloc: std.mem.Allocator, name: [:0]const u8, func: anytype, user_context: anytype) BindError!Binding {
         const InternalContext = struct {
             webview: Webview,
             alloc: std.mem.Allocator,
@@ -249,7 +257,20 @@ pub const Webview = struct {
             .user_context = user_context,
 
         };
-        try rawReturnToError(raw.webview_bind(self.handle, name.ptr, callback, context));
+        const possible_error = raw.webview_bind(self.handle, name.ptr, callback, context);
+        try switch (possible_error) {
+            .ok => void{},
+            // 2025-01-12: missing_dependency & canceled are not possible return values
+            // invalid_argument is only caused by null values, prevented by type-checking
+            .missing_dependency, .canceled, .invalid_argument => unreachable,
+
+            .invalid_state => error.InvalidState,
+            .unspecified => error.Unspecified,
+            .duplicate => error.Duplicate,
+
+            // Function does not handle UnbindError
+            .not_found => unreachable,
+        };
         return .{
             .webview = self,
             .name = name,
