@@ -76,6 +76,9 @@ pub const Webview = struct {
 
         /// status: zero for success, non-zero for error
         pub fn returnGeneric(self: BindContext, status: i32, value: anytype) (Oom || Error)!void {
+            if (@TypeOf(value) == void) {
+                return self.returnRaw(status, "");
+            }
             var buffer = std.ArrayList(u8).init(self.alloc);
             defer buffer.deinit();
 
