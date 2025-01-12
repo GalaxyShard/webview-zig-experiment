@@ -18,14 +18,71 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 const std = @import("std");
-pub const raw = @import("raw.zig");
-
-handle: raw.webview_t,
 
 const Webview = @This();
 
-pub const VersionInfo = raw.WebviewVersionInfo;
-pub const DispatchCallback = fn (Webview, ?*anyopaque) void;
+pub const Handle = opaque{};
+pub const RawDispatchCallback = fn (Webview, ?*anyopaque) void;
+pub const LibraryVersion = extern struct {
+    major: c_uint,
+    minor: c_uint,
+    patch: c_uint,
+};
+pub const VersionInfo = extern struct {
+    version: LibraryVersion,
+    version_number: [32]u8,
+    pre_release: [48]u8,
+    build_metadata: [48]u8,
+};
+
+
+/// Quoted from webview:
+///     The following codes are commonly used in the library:
+///     - ok
+///     - unspecified
+///     - invalid_argument
+///     - invalid_state
+///
+///     With the exception of "ok" which is normally expected,
+///     the other common codes do not normally need to be handled specifically.
+///     Refer to specific functions regarding handling of other codes.
+///
+const CApiReturn = enum(c_int) {
+    missing_dependency = -5,
+    canceled = -4,
+    invalid_state = -3,
+
+    /// One or more invalid arguments have been specified e.g. in a function call.
+    invalid_argument = -2,
+
+    /// An unspecified error occurred. A more specific error code may be needed.
+    unspecified = -1,
+
+    ok = 0,
+    duplicate = 1,
+    not_found = 2
+};
+
+const raw = struct {
+    extern fn webview_create(debug: c_int, window: ?*anyopaque) ?*Handle;
+    extern fn webview_destroy(w: *Handle) CApiReturn;
+    extern fn webview_run(w: *Handle) CApiReturn;
+    extern fn webview_terminate(w: *Handle) CApiReturn;
+    extern fn webview_dispatch(w: *Handle, @"fn": *const fn (*Handle, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) CApiReturn;
+    extern fn webview_get_window(w: *Handle) ?*anyopaque;
+    extern fn webview_set_title(w: *Handle, title: [*:0]const u8) CApiReturn;
+    extern fn webview_set_size(w: *Handle, width: c_int, height: c_int, hints: c_int) CApiReturn;
+    extern fn webview_navigate(w: *Handle, url: [*:0]const u8) CApiReturn;
+    extern fn webview_set_html(w: *Handle, html: [*:0]const u8) CApiReturn;
+    extern fn webview_init(w: *Handle, js: [*:0]const u8) CApiReturn;
+    extern fn webview_eval(w: *Handle, js: [*:0]const u8) CApiReturn;
+    extern fn webview_bind(w: *Handle, name: [*:0]const u8, @"fn": ?*const fn ([*:0]const u8, [*:0]const u8, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) CApiReturn;
+    extern fn webview_unbind(w: *Handle, name: [*:0]const u8) CApiReturn;
+    extern fn webview_return(w: *Handle, id: [*:0]const u8, status: c_int, result: [*:0]const u8) CApiReturn;
+    extern fn webview_version() *const VersionInfo;
+};
+
+handle: *Handle,
 
 pub const Error = error {
     /// Invalid state detected.
@@ -40,7 +97,7 @@ pub const Error = error {
 pub const BindError = error {Duplicate,OutOfMemory} || Error;
 pub const UnbindError = error {NotFound} || Error;
 
-pub fn genericReturnToError(value: raw.WebviewReturn) Error!void {
+pub fn genericReturnToError(value: CApiReturn) Error!void {
     return switch (value) {
         // 2025-01-12: Never actually returned; converted to nullptr before returning
         .missing_dependency => unreachable,
