@@ -65,7 +65,7 @@ pub extern fn webview_create(debug: c_int, window: ?*anyopaque) ?webview_t;
 pub extern fn webview_destroy(w: webview_t) WebviewReturn;
 pub extern fn webview_run(w: webview_t) WebviewReturn;
 pub extern fn webview_terminate(w: webview_t) WebviewReturn;
-pub extern fn webview_dispatch(w: webview_t, @"fn": ?*const fn (webview_t, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) WebviewReturn;
+pub extern fn webview_dispatch(w: webview_t, @"fn": *const fn (webview_t, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) WebviewReturn;
 pub extern fn webview_get_window(w: webview_t) ?*anyopaque;
 pub extern fn webview_set_title(w: webview_t, title: [*:0]const u8) WebviewReturn;
 pub extern fn webview_set_size(w: webview_t, width: c_int, height: c_int, hints: c_int) WebviewReturn;
