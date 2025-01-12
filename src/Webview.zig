@@ -76,7 +76,7 @@ const raw = struct {
     extern fn webview_set_html(w: *Handle, html: [*:0]const u8) CApiReturn;
     extern fn webview_init(w: *Handle, js: [*:0]const u8) CApiReturn;
     extern fn webview_eval(w: *Handle, js: [*:0]const u8) CApiReturn;
-    extern fn webview_bind(w: *Handle, name: [*:0]const u8, @"fn": ?*const fn ([*:0]const u8, [*:0]const u8, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) CApiReturn;
+    extern fn webview_bind(w: *Handle, name: [*:0]const u8, @"fn": *const fn ([*:0]const u8, [*:0]const u8, ?*anyopaque) callconv(.C) void, arg: ?*anyopaque) CApiReturn;
     extern fn webview_unbind(w: *Handle, name: [*:0]const u8) CApiReturn;
     extern fn webview_return(w: *Handle, id: [*:0]const u8, status: c_int, result: [*:0]const u8) CApiReturn;
     extern fn webview_version() *const VersionInfo;
