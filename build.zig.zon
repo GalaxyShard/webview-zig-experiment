@@ -1,20 +1,21 @@
 .{
-    .name = "webview",
-    .version = "0.1.0",
+    .name = .webview,
+    .fingerprint = 0xd0d1ff8d0b31065d,
+    .version = "0.0.0",
     .dependencies = .{
         .webview = .{
             //.path = "../webview",
-            .url = "git+https://github.com/webview/webview.git#3b7e27fd3ec028e1fafcd46fac994860c204505f",
-            .hash = "1220e54f252360d574347e3530a247fac41452123d61d43c9a8293355441dc458421",
+            .url = "git+https://github.com/webview/webview.git#e2bd2e55c5984e43ebb3cc92fe1ebcb727917cb2",
+            .hash = "N-V-__8AAIenCQChtsv1DazjTFRrrDw6dkd1jY_gUNg5pDEd",
         },
     },
     .paths = .{
-        "LICENSE",
-        "README.md",
         "examples",
+        "external",
+        "src",
         "build.zig",
         "build.zig.zon",
-        "src",
-        "external",
+        "README.md",
+        "LICENSE",
     },
 }
