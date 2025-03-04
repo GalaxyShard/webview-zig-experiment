@@ -22,7 +22,7 @@ const std = @import("std");
 
 const Webview = @This();
 
-pub const Handle = opaque{};
+pub const Handle = opaque {};
 pub const RawDispatchCallback = fn (Webview, ?*anyopaque) void;
 pub const LibraryVersion = extern struct {
     major: c_uint,
@@ -35,7 +35,6 @@ pub const VersionInfo = extern struct {
     pre_release: [48]u8,
     build_metadata: [48]u8,
 };
-
 
 /// Quoted from webview:
 ///     The following codes are commonly used in the library:
@@ -61,7 +60,7 @@ const CApiReturn = enum(c_int) {
 
     ok = 0,
     duplicate = 1,
-    not_found = 2
+    not_found = 2,
 };
 
 const raw = struct {
@@ -85,7 +84,7 @@ const raw = struct {
 
 handle: *Handle,
 
-pub const Error = error {
+pub const Error = error{
     /// Invalid state detected.
     InvalidState,
     /// An unspecified error occurred. A more specific error code may be needed.
@@ -95,8 +94,8 @@ pub const Error = error {
 // pub const CreateError = error{MissingDependency} || Error;
 
 // Checked with upstream webview as of 2025-01-12
-pub const BindError = error {Duplicate,OutOfMemory} || Error;
-pub const UnbindError = error {NotFound} || Error;
+pub const BindError = error{ Duplicate, OutOfMemory } || Error;
+pub const UnbindError = error{NotFound} || Error;
 
 pub fn genericReturnToError(value: CApiReturn) Error!void {
     return switch (value) {
@@ -158,12 +157,7 @@ pub const BindContext = struct {
     }
 };
 
-pub const WindowSizeHint = enum(c_int) {
-    none = 0,
-    min = 1,
-    max = 2,
-    fixed = 3
-};
+pub const WindowSizeHint = enum(c_int) { none = 0, min = 1, max = 2, fixed = 3 };
 
 pub fn init(debug: bool, window: ?*anyopaque) ?Webview {
     const handle = raw.webview_create(@intFromBool(debug), window) orelse return null;
@@ -215,7 +209,7 @@ pub const Binding = struct {
     webview: Webview,
     name: [:0]const u8,
     internal_context: *anyopaque,
-    deinit_context: *const fn(internal_context: *anyopaque) void,
+    deinit_context: *const fn (internal_context: *anyopaque) void,
 
     pub fn deinit(self: Binding) void {
         // Confirmed against webview as of 2025-01-10, this should never fail
@@ -223,7 +217,6 @@ pub const Binding = struct {
         // or if the function wasn't bound (possibly a double-free; an error either way)
         std.debug.assert(raw.webview_unbind(self.webview.handle, self.name.ptr) == .ok);
         self.deinit_context(self.internal_context);
-
     }
 };
 
@@ -238,31 +231,27 @@ pub fn bind(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, func: a
 
     const incorrect_type_msg = std.fmt.comptimePrint(
         "expected function type '*const fn(...) void', found '{s}'",
-        .{ @typeName(@TypeOf(func)) },
+        .{@typeName(@TypeOf(func))},
     );
     const info = switch (@typeInfo(@TypeOf(func))) {
-        .pointer => |p| (
-            switch (@typeInfo(p.child)) {
-                .@"fn" => |i| i,
-                else => @compileError(incorrect_type_msg),
-            }
-        ),
+        .pointer => |p| (switch (@typeInfo(p.child)) {
+            .@"fn" => |i| i,
+            else => @compileError(incorrect_type_msg),
+        }),
         else => @compileError(incorrect_type_msg),
     };
 
     if (info.is_var_args or (info.params.len != 3 and info.params.len != 2)) {
         const msg = (
-                \\`func` must have either 2 or 3 arguments
-                \\     2 args: fn(context: BindContext, data: {0s}) void
-                \\     3 args: fn(context: BindContext, args: <some type>, data: {0s}) void
+            \\`func` must have either 2 or 3 arguments
+            \\     2 args: fn(context: BindContext, data: {0s}) void
+            \\     3 args: fn(context: BindContext, args: <some type>, data: {0s}) void
         );
-        @compileError(std.fmt.comptimePrint(msg, .{ @typeName(@TypeOf(user_context)) }));
+        @compileError(std.fmt.comptimePrint(msg, .{@typeName(@TypeOf(user_context))}));
     }
     const LastArgumentType = info.params[info.params.len - 1].type.?;
     if (@TypeOf(user_context) != LastArgumentType) {
-        @compileError(std.fmt.comptimePrint("last argument of 'func' ({s}) must be the same type as 'user_context' ({s})", .{
-            @typeName(@TypeOf(user_context)), @typeName(LastArgumentType)
-        }));
+        @compileError(std.fmt.comptimePrint("last argument of 'func' ({s}) must be the same type as 'user_context' ({s})", .{ @typeName(@TypeOf(user_context)), @typeName(LastArgumentType) }));
     }
     if (info.return_type.? != void) {
         @compileError(std.fmt.comptimePrint("bind function must return 'void', found '{s}'; try using bind_context.returnValue(...) instead", .{
@@ -272,7 +261,6 @@ pub fn bind(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, func: a
 
     const callback = struct {
         fn inner(id: [*:0]const u8, json: [*:0]const u8, context_raw: ?*anyopaque) callconv(.c) void {
-
             const internal_context: *InternalContext = @alignCast(@ptrCast(context_raw.?));
 
             const bind_context: BindContext = .{
@@ -292,9 +280,7 @@ pub fn bind(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, func: a
                 // Assume only one argument is passed, as is expected from the function
                 // Use Javascript objects to pass more than one argument
                 const parsed = std.json.parseFromSlice([1]ArgsType, internal_context.alloc, json_slice, .{}) catch |e| {
-                    std.debug.panic("(function {s}) error parsing json: {s}\njson: {s}\n", .{
-                        internal_context.name, @errorName(e), json_slice
-                    });
+                    std.debug.panic("(function {s}) error parsing json: {s}\njson: {s}\n", .{ internal_context.name, @errorName(e), json_slice });
                 };
                 defer parsed.deinit();
                 internal_context.func(bind_context, parsed.value[0], internal_context.user_context);
@@ -314,7 +300,6 @@ pub fn bind(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, func: a
         .name = name,
         .func = func,
         .user_context = user_context,
-
     };
     const possible_error = raw.webview_bind(self.handle, name.ptr, callback, context);
     try switch (possible_error) {

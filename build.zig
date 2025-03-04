@@ -37,16 +37,16 @@ pub fn build(b: *std.Build) void {
         },
         .freebsd => {
             static_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/cairo/" });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gtk-3.0/" });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/glib-2.0/" });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/lib/glib-2.0/include/" });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/webkitgtk-4.0/" });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/pango-1.0/" });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/harfbuzz/" });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gdk-pixbuf-2.0/" });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/atk-1.0/" });
-//             static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/libsoup-3.0/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/cairo/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gtk-3.0/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/glib-2.0/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/lib/glib-2.0/include/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/webkitgtk-4.0/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/pango-1.0/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/harfbuzz/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gdk-pixbuf-2.0/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/atk-1.0/" });
+            // static_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/libsoup-3.0/" });
             static_lib.linkSystemLibrary("gtk-3");
             static_lib.linkSystemLibrary("webkit2gtk-4.0");
         },
@@ -54,8 +54,8 @@ pub fn build(b: *std.Build) void {
             static_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
             static_lib.linkSystemLibrary("gtk+-3.0");
             static_lib.linkSystemLibrary("webkit2gtk-4.0");
-//             static_lib.linkSystemLibrary("gtk-4");
-//             static_lib.linkSystemLibrary("webkitgtk-6.0");
+            // static_lib.linkSystemLibrary("gtk-4");
+            // static_lib.linkSystemLibrary("webkitgtk-6.0");
         },
     }
     b.installArtifact(static_lib);
@@ -85,16 +85,16 @@ pub fn build(b: *std.Build) void {
         },
         .freebsd => {
             shared_lib.addCSourceFile(.{ .file = source_file, .flags = &.{"-std=c++11"} });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/cairo/" });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gtk-3.0/" });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/glib-2.0/" });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/lib/glib-2.0/include/" });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/webkitgtk-4.0/" });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/pango-1.0/" });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/harfbuzz/" });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gdk-pixbuf-2.0/" });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/atk-1.0/" });
-//             shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/libsoup-3.0/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/cairo/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gtk-3.0/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/glib-2.0/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/lib/glib-2.0/include/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/webkitgtk-4.0/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/pango-1.0/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/harfbuzz/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/gdk-pixbuf-2.0/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/atk-1.0/" });
+            // shared_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include/libsoup-3.0/" });
             shared_lib.linkSystemLibrary("gtk-3");
             shared_lib.linkSystemLibrary("webkit2gtk-4.0");
         },
