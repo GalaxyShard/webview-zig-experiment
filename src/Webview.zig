@@ -332,3 +332,21 @@ pub fn destroy(self: Webview) void {
     // unless self.handle is null, which is prevented by Zig's type checking
     std.debug.assert(raw.webview_destroy(self.handle) == .ok);
 }
+
+pub fn executeJsFunction(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, args: anytype) (error{OutOfMemory} || Webview.Error)!void {
+    var buffer = std.ArrayList(u8).init(alloc);
+    defer buffer.deinit();
+
+    try buffer.appendSlice(name);
+    try buffer.appendSlice("(");
+    if (@TypeOf(args) != void) {
+        try std.json.stringifyArbitraryDepth(alloc, args, .{}, buffer.writer());
+
+    }
+    try buffer.appendSlice(");");
+
+    const js = try buffer.toOwnedSliceSentinel(0);
+    defer alloc.free(js);
+
+    try self.eval(js);
+}
