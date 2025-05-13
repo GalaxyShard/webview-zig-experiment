@@ -55,14 +55,14 @@ pub fn build(b: *std.Build) void {
             lib.root_module.linkSystemLibrary("webkit2gtk-4.1", .{});
         },
         else => {
-            lib.addCSourceFile(.{
+            lib.root_module.addCSourceFile(.{
                 .file = source_file,
                 .flags = &.{"-std=c++14"},
             });
             lib.root_module.linkSystemLibrary("gtk+-3.0", .{});
             lib.root_module.linkSystemLibrary("webkit2gtk-4.1", .{});
             // lib.root_module.linkSystemLibrary("gtk-4", .{});
-            // lib.root_module.linkSystemLibrary("webkit2gtk-6.0", .{});
+            // lib.root_module.linkSystemLibrary("webkitgtk-6.0", .{});
         },
     }
     b.installArtifact(lib);
