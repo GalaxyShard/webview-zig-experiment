@@ -229,10 +229,7 @@ pub fn bind(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, func: a
         user_context: @TypeOf(user_context),
     };
 
-    const incorrect_type_msg = std.fmt.comptimePrint(
-        "expected function type '*const fn(...) void', found '{s}'",
-        .{@typeName(@TypeOf(func))},
-    );
+    const incorrect_type_msg = "expected function type '*const fn(...) void', found '" ++ @typeName(@TypeOf(func)) ++ "'";
     const info = switch (@typeInfo(@TypeOf(func))) {
         .pointer => |p| (switch (@typeInfo(p.child)) {
             .@"fn" => |i| i,
@@ -241,22 +238,34 @@ pub fn bind(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, func: a
         else => @compileError(incorrect_type_msg),
     };
 
-    if (info.is_var_args or (info.params.len != 3 and info.params.len != 2)) {
+    const user_struct: std.builtin.Type.Struct = blk: switch (@typeInfo(@TypeOf(user_context))) {
+        .@"struct" => |s| break :blk s,
+        else => @compileError("expected tuple, found " ++ @typeName(@TypeOf(user_context))),
+    };
+    if (!user_struct.is_tuple) {
+        @compileError("expected tuple, found " ++ @typeName(@TypeOf(user_context)));
+    }
+
+    if (info.is_var_args or (info.params.len != user_struct.fields.len + 1 and info.params.len != user_struct.fields.len + 2)) {
         const msg = (
-            \\`func` must have either 2 or 3 arguments
-            \\     2 args: fn(context: BindContext, data: {0s}) void
-            \\     3 args: fn(context: BindContext, args: <some type>, data: {0s}) void
+            \\`func` must have {0} or {1} arguments, found {2}
+            \\     example: fn(context: BindContext{3s}) void
+            \\     example: fn(context: BindContext, javascript_arg: <some type>{3s}) void
         );
-        @compileError(std.fmt.comptimePrint(msg, .{@typeName(@TypeOf(user_context))}));
-    }
-    const LastArgumentType = info.params[info.params.len - 1].type.?;
-    if (@TypeOf(user_context) != LastArgumentType) {
-        @compileError(std.fmt.comptimePrint("last argument of 'func' ({s}) must be the same type as 'user_context' ({s})", .{ @typeName(@TypeOf(user_context)), @typeName(LastArgumentType) }));
-    }
-    if (info.return_type.? != void) {
-        @compileError(std.fmt.comptimePrint("bind function must return 'void', found '{s}'; try using bind_context.returnValue(...) instead", .{
-            @typeName(info.return_type.?),
+        comptime var args_string: []const u8 = "";
+        comptime for (user_struct.fields, 0..) |field, i| {
+            args_string = std.fmt.comptimePrint("{s}, user{}: {s}", .{ args_string, i, @typeName(field.type) });
+        };
+        @compileError(std.fmt.comptimePrint(msg, .{
+            user_struct.fields.len + 1,
+            user_struct.fields.len + 2,
+            info.params.len,
+            args_string,
         }));
+    }
+
+    if (info.return_type.? != void) {
+        @compileError("bind function must return 'void', found '" ++ @typeName(info.return_type.?) ++ "'; try using bind_context.returnValue(...) instead");
     }
 
     const callback = struct {
@@ -269,31 +278,34 @@ pub fn bind(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, func: a
                 .id = std.mem.sliceTo(id, 0),
             };
 
-            if (info.params.len == 2) {
-                internal_context.func(bind_context, internal_context.user_context);
+            if (info.params.len == user_struct.fields.len + 1) {
+                @call(.auto, internal_context.func, .{bind_context} ++ internal_context.user_context);
             } else {
-                const ArgsType = info.params[1].type.?;
+                const JavascriptArgsType = info.params[1].type.?;
 
                 const json_slice = std.mem.sliceTo(json, 0);
 
-                // [1]ArgsType because the arguments passed from Javascript are wrapped in an array
+                // [1]JavascriptArgsType because the arguments passed from Javascript are wrapped in an array/tuple
                 // Assume only one argument is passed, as is expected from the function
                 // Use Javascript objects to pass more than one argument
-                const parsed = std.json.parseFromSlice([1]ArgsType, internal_context.alloc, json_slice, .{}) catch |e| {
+                const parsed = std.json.parseFromSlice([1]JavascriptArgsType, internal_context.alloc, json_slice, .{}) catch |e| {
                     std.debug.panic("(function {s}) error parsing json: {s}\njson: {s}\n", .{ internal_context.name, @errorName(e), json_slice });
                 };
                 defer parsed.deinit();
-                internal_context.func(bind_context, parsed.value[0], internal_context.user_context);
+                @call(.auto, internal_context.func, .{ bind_context, parsed.value[0] } ++ internal_context.user_context);
             }
         }
     }.inner;
+
     const deinit = struct {
         fn inner(internal_context: *anyopaque) void {
             const casted: *InternalContext = @alignCast(@ptrCast(internal_context));
             casted.alloc.destroy(casted);
         }
     }.inner;
+
     const context = try alloc.create(InternalContext);
+    errdefer alloc.destroy(context);
     context.* = .{
         .webview = self,
         .alloc = alloc,
@@ -301,6 +313,7 @@ pub fn bind(self: Webview, alloc: std.mem.Allocator, name: [:0]const u8, func: a
         .func = func,
         .user_context = user_context,
     };
+
     const possible_error = raw.webview_bind(self.handle, name.ptr, callback, context);
     try switch (possible_error) {
         .ok => void{},
@@ -341,7 +354,6 @@ pub fn executeJsFunction(self: Webview, alloc: std.mem.Allocator, name: [:0]cons
     try buffer.appendSlice("(");
     if (@TypeOf(args) != void) {
         try std.json.stringifyArbitraryDepth(alloc, args, .{}, buffer.writer());
-
     }
     try buffer.appendSlice(");");
 
