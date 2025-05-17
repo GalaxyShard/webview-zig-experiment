@@ -46,23 +46,52 @@ pub fn build(b: *std.Build) void {
             });
             lib.root_module.linkFramework("WebKit", .{});
         },
-        .freebsd => {
-            lib.root_module.addCSourceFile(.{
-                .file = source_file,
-                .flags = &.{"-std=c++14"},
-            });
-            lib.root_module.linkSystemLibrary("gtk-3", .{});
-            lib.root_module.linkSystemLibrary("webkit2gtk-4.1", .{});
-        },
         else => {
             lib.root_module.addCSourceFile(.{
                 .file = source_file,
                 .flags = &.{"-std=c++14"},
             });
-            lib.root_module.linkSystemLibrary("gtk+-3.0", .{});
-            lib.root_module.linkSystemLibrary("webkit2gtk-4.1", .{});
-            // lib.root_module.linkSystemLibrary("gtk-4", .{});
+            inline for (.{
+                "webkitgtk-6.0",
+                "gtk-4.0",
+                "pango-1.0",
+                "fribidi",
+                "harfbuzz",
+                "gdk-pixbuf-2.0",
+                "cairo",
+                "freetype2",
+                "libpng16",
+                "pixman-1",
+                "graphene-1.0",
+                "libsoup-3.0",
+                "glib-2.0",
+                "libmount",
+                "blkid",
+                "sysprof-6",
+                "X11",
+            }) |include| {
+                lib.root_module.addIncludePath(b.path("external/" ++ include));
+            }
+            lib.root_module.addIncludePath(b.path("external"));
+
+            // attempt to prevent undefined symbol errors by defining them in stubs
+            // problem: the functions from the stub are used instead of the system-installed library
+            // const shared_object = b.addLibrary(.{
+            //     .name = "stubs",
+            //     .linkage = .dynamic,
+            //     .root_module = b.createModule(.{
+            //         .target = target,
+            //         .optimize = optimize,
+            //         .root_source_file = b.path("src/link_webkitgtk.zig"),
+            //     }),
+            // });
+            //
+            // lib.root_module.linkLibrary(shared_object);
+
+            // requires the library to be installed on the host system;
+            // creates issues for cross-compilation
             // lib.root_module.linkSystemLibrary("webkitgtk-6.0", .{});
+
         },
     }
     b.installArtifact(lib);
